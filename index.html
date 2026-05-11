@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-height, initial-scale=1.0">
+  <title>Geolocation API with accuracyMode Emulation</title>
+  <style>
+    :root {
+      --primary-color: #1a73e8;
+      --primary-hover: #1557b0;
+      --secondary-color: #5f6368;
+      --background-color: #f8f9fa;
+      --card-background: #ffffff;
+      --border-color: #dadce0;
+      --success-color: #1e8e3e;
+      --error-color: #d93025;
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      font-family: var(--font-family);
+      line-height: 1.6;
+      color: #202124;
+      background-color: var(--background-color);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      color: #202124;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .subtitle {
+      color: var(--secondary-color);
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--card-background);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      color: var(--primary-color);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .control-group label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 5px;
+    }
+
+    select {
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 1rem;
+      background-color: #fff;
+      cursor: pointer;
+      outline: none;
+      width: 100%;
+    }
+
+    select:focus {
+      border-color: var(--primary-color);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: #f1f3f4;
+      color: #202124;
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: #e8eaed;
+    }
+
+    #api-result-display {
+      background-color: #f1f3f4;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.85rem;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #202124;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    #output-log {
+      background-color: #202124;
+      color: #e8eaed;
+      padding: 15px;
+      border-radius: 0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      max-height: 300px;
+      margin: 0;
+    }
+
+    .log-entry {
+      margin-bottom: 8px;
+      border-bottom: 1px solid #3c4043;
+      padding-bottom: 8px;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    .log-time {
+      color: #9aa0a6;
+      font-size: 0.8rem;
+    }
+    .log-success { color: #81c995; }
+    .log-error { color: #f28b82; }
+    .log-info { color: #8ab4f8; }
+
+    /* Dialog styling */
+    dialog {
+      padding: 0;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 24px 38px 3px rgba(0,0,0,0.14), 0 9px 46px 8px rgba(0,0,0,0.12), 0 11px 15px -7px rgba(0,0,0,0.2);
+      max-width: 420px;
+      width: 100%;
+    }
+
+    dialog::backdrop {
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .dialog-content {
+      padding: 24px;
+    }
+
+    .dialog-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: #202124;
+    }
+
+    .dialog-message {
+      margin-bottom: 24px;
+      color: var(--secondary-color);
+      font-size: 0.95rem;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Approximate Geolocation Permission Model Emulator</h1>
+    <p class="subtitle">Test and emulate the permission flows for approximate and precise location requests as described in <a href="https://github.com/explainers-by-googlers/approximate-geolocation/blob/main/permission-states.md">https://github.com/explainers-by-googlers/approximate-geolocation/blob/main/permission-states.md</a>.</p>
+
+    <!-- Permission State Controls -->
+    <div class="card">
+      <h2 style="margin-bottom: 15px;">Manually Set Permission State</h2>
+      <div style="display: flex; gap: 10px; align-items: flex-end;">
+        <div class="control-group" style="flex-grow: 1;">
+          <label for="combined-state-select">Combined Permission State</label>
+          <select id="combined-state-select">
+            <option value="1">1. approximate: denied | precise: denied</option>
+            <option value="2">2. approximate: prompt | precise: denied</option>
+            <option value="3">3. approximate: granted | precise: denied</option>
+            <option value="4" selected>4. approximate: prompt | precise: prompt</option>
+            <option value="5">5. approximate: granted | precise: prompt</option>
+            <option value="6">6. approximate: granted | precise: granted</option>
+          </select>
+        </div>
+        <button class="btn-secondary" id="btn-reset-state">Reset</button>
+      </div>
+      
+      <!-- Vibrant colored status indicator block -->
+      <div id="colored-state-badges" style="margin-top: 12px; padding: 8px 12px; background-color: var(--background-color); border-radius: 4px; border: 1px solid var(--border-color); display: flex; align-items: center;">
+        <!-- Dynamically updated via JS -->
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+      <h2 style="margin-bottom: 15px;">Request Position</h2>
+      <div class="btn-group">
+        <button class="btn-primary" id="btn-approx">
+          getCurrentPosition({ accuracyMode: 'approximate' })
+        </button>
+        <button class="btn-primary" id="btn-precise">
+          getCurrentPosition({ accuracyMode: 'precise' })
+        </button>
+      </div>
+
+      <!-- Returned Value Result Section -->
+      <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+        <div style="font-weight: 600; font-size: 0.9rem; color: var(--secondary-color); margin-bottom: 5px;">Returned Value of Call</div>
+        <pre id="api-result-display">None (Click a request button above to execute)</pre>
+      </div>
+    </div>
+
+    <!-- Log Output -->
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <div style="padding: 15px 15px 10px 15px; display: flex; align-items: center; justify-content: space-between;">
+        <h2 style="margin: 0;">Execution Log</h2>
+        <button class="btn-secondary" id="btn-clear-log" style="padding: 4px 12px; font-size: 0.85rem;">Clear Log</button>
+      </div>
+      <pre id="output-log"></pre>
+    </div>
+  </div>
+
+  <!-- Emulated Permission Dialog -->
+  <dialog id="permission-dialog">
+    <div class="dialog-content">
+      <h3 class="dialog-title" id="dialog-title">Permission Request</h3>
+      <div class="dialog-message" id="dialog-message">This website wants to access your location.</div>
+      <div class="dialog-actions" id="dialog-actions">
+        <!-- Buttons inserted dynamically -->
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    // DOM Elements
+    const combinedStateSelect = document.getElementById('combined-state-select');
+    const coloredStateBadges = document.getElementById('colored-state-badges');
+    const btnApprox = document.getElementById('btn-approx');
+    const btnPrecise = document.getElementById('btn-precise');
+    const btnResetState = document.getElementById('btn-reset-state');
+    const btnClearLog = document.getElementById('btn-clear-log');
+    const apiResultDisplay = document.getElementById('api-result-display');
+    const outputLog = document.getElementById('output-log');
+    const dialog = document.getElementById('permission-dialog');
+    const dialogTitle = document.getElementById('dialog-title');
+    const dialogMessage = document.getElementById('dialog-message');
+    const dialogActions = document.getElementById('dialog-actions');
+
+    // Render vibrant blue, red, and green tag badges for Section 1 active state display
+    function updateSection1Badges() {
+      const stateNum = parseInt(combinedStateSelect.value, 10);
+      let approx = 'denied', precise = 'denied';
+      switch(stateNum) {
+        case 1: approx = 'denied'; precise = 'denied'; break;
+        case 2: approx = 'prompt'; precise = 'denied'; break;
+        case 3: approx = 'granted'; precise = 'denied'; break;
+        case 4: approx = 'prompt'; precise = 'prompt'; break;
+        case 5: approx = 'granted'; precise = 'prompt'; break;
+        case 6: approx = 'granted'; precise = 'granted'; break;
+      }
+
+      const getBadge = (val) => {
+        let bg = '', fg = '';
+        if (val === 'prompt') { bg = '#e8f0fe'; fg = 'var(--primary-color)'; } // blue
+        if (val === 'denied') { bg = '#fce8e6'; fg = 'var(--error-color)'; }   // red
+        if (val === 'granted') { bg = '#e6f4ea'; fg = 'var(--success-color)'; } // green
+        return `<span style="background-color: ${bg}; color: ${fg}; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.85rem; display: inline-block;">${val}</span>`;
+      };
+
+      coloredStateBadges.innerHTML = `<span style="color: var(--secondary-color); font-size: 0.85rem; margin-right: 8px;">Active Configuration:</span> <span style="font-size: 0.9rem;">approximate: ${getBadge(approx)} <span style="color: var(--border-color); margin: 0 8px;">|</span> precise: ${getBadge(precise)}</span>`;
+    }
+
+    // Listen for manual state changes
+    combinedStateSelect.addEventListener('change', () => {
+      updateSection1Badges();
+      log(`Manually changed state to State ${combinedStateSelect.value}`, 'info');
+      apiResultDisplay.textContent = "State modified programmatically. Request position again to test.";
+      apiResultDisplay.style.backgroundColor = "#f1f3f4";
+      apiResultDisplay.style.color = "#202124";
+    });
+
+    // Reset state to default (State 4: prompt/prompt)
+    btnResetState.addEventListener('click', () => {
+      combinedStateSelect.value = "4";
+      updateSection1Badges();
+      log(`Reset permission states to default State 4 (prompt/prompt)`, 'info');
+      apiResultDisplay.textContent = "State reset to State 4. Request position again to test.";
+      apiResultDisplay.style.backgroundColor = "#f1f3f4";
+      apiResultDisplay.style.color = "#202124";
+    });
+
+    // Helper to format logs
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      const time = new Date().toLocaleTimeString();
+      entry.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+      outputLog.appendChild(entry);
+      outputLog.scrollTop = outputLog.scrollHeight;
+    }
+
+    btnClearLog.addEventListener('click', () => {
+      outputLog.innerHTML = '';
+    });
+
+    // Unified helper to display API results directly in Section 2 and record to Log
+    function setApiResult(summaryText, payloadObj, isError = false) {
+      const payloadStr = payloadObj ? JSON.stringify(payloadObj, null, 2) : '';
+      const fullDisplay = `${summaryText}${payloadStr ? '\n' + payloadStr : ''}`;
+      
+      // Display directly inside Section 2
+      apiResultDisplay.textContent = fullDisplay;
+      apiResultDisplay.style.color = isError ? 'var(--error-color)' : 'var(--success-color)';
+      apiResultDisplay.style.backgroundColor = isError ? '#fce8e6' : '#e6f4ea';
+      
+      // Mirror final outcome to continuous text log
+      log(`Result: ${fullDisplay}`, isError ? 'error' : 'success');
+    }
+
+    // Helper to return dummy locations
+    function getDummyPosition(type) {
+      if (type === 'precise') {
+        return {
+          coords: {
+            latitude: 37.4220,
+            longitude: -122.0841,
+            accuracy: 12, // precise
+          },
+          timestamp: Date.now()
+        };
+      } else {
+        return {
+          coords: {
+            latitude: 37.4,
+            longitude: -122.1,
+            accuracy: 2500, // approximate
+          },
+          timestamp: Date.now()
+        };
+      }
+    }
+
+    // Transition to a new state programmatically
+    function transitionToState(stateNum) {
+      combinedStateSelect.value = stateNum;
+      updateSection1Badges();
+    }
+
+    // Show custom permission dialog and return a Promise resolved with the user's action
+    function showPermissionDialog(title, message, buttons) {
+      return new Promise((resolve) => {
+        dialogTitle.textContent = title;
+        dialogMessage.textContent = message;
+        dialogActions.innerHTML = '';
+
+        buttons.forEach(btn => {
+          const buttonEl = document.createElement('button');
+          buttonEl.className = btn.primary ? 'btn-primary' : 'btn-secondary';
+          buttonEl.textContent = btn.text;
+          buttonEl.addEventListener('click', () => {
+            dialog.close();
+            resolve(btn.action);
+          });
+          dialogActions.appendChild(buttonEl);
+        });
+
+        dialog.showModal();
+      });
+    }
+
+    // Implementation logic for getCurrentPosition emulation
+    async function emulateGetCurrentPosition(requestedMode) {
+      const currentState = parseInt(combinedStateSelect.value, 10);
+      log(`Requested getCurrentPosition({ accuracyMode: '${requestedMode}' }) from State ${currentState}...`, 'info');
+      apiResultDisplay.textContent = "Awaiting permission evaluation / prompt dialog input...";
+      apiResultDisplay.style.backgroundColor = "#fff8e1"; // amber/loading tint
+      apiResultDisplay.style.color = "#b06000";
+
+      if (requestedMode === 'approximate') {
+        switch(currentState) {
+          case 1:
+            // State 1: No prompt, gets PERMISSION_DENIED
+            setApiResult("Failure - GeolocationPositionError (code: 1, message: 'PERMISSION_DENIED')", null, true);
+            break;
+
+          case 2:
+            // State 2: Prompt for approximate only
+            const action2 = await showPermissionDialog(
+              "Allow approximate location?",
+              "This website wants to know your approximate location.",
+              [
+                { text: "Allow Approximate", action: "grant_approx", primary: true },
+                { text: "Block", action: "deny" }
+              ]
+            );
+            if (action2 === "grant_approx") {
+              transitionToState(3);
+              log(`User granted approximate location. Transitioned to State 3.`, 'info');
+              setApiResult("Success - Returned approximate location:", getDummyPosition('approximate').coords);
+            } else {
+              transitionToState(1);
+              log(`User denied request. Transitioned to State 1.`, 'info');
+              setApiResult("Failure - GeolocationPositionError (code: 1, message: 'PERMISSION_DENIED')", null, true);
+            }
+            break;
+
+          case 3:
+            // State 3: Return approximate location directly
+            setApiResult("Success - Returned approximate location:", getDummyPosition('approximate').coords);
+            break;
+
+          case 4:
+            // State 4: Prompt for approximate location
+            const action4 = await showPermissionDialog(
+              "Allow approximate location?",
+              "This website wants to know your approximate location.",
+              [
+                { text: "Allow Approximate", action: "grant_approx", primary: true },
+                { text: "Block", action: "deny" }
+              ]
+            );
+            if (action4 === "grant_approx") {
+              transitionToState(5);
+              log(`User granted approximate location. Transitioned to State 5.`, 'info');
+              setApiResult("Success - Returned approximate location:", getDummyPosition('approximate').coords);
+            } else {
+              transitionToState(1);
+              log(`User denied request. Transitioned to State 1.`, 'info');
+              setApiResult("Failure - GeolocationPositionError (code: 1, message: 'PERMISSION_DENIED')", null, true);
+            }
+            break;
+
+          case 5:
+          case 6:
+            // State 5 & 6: Return approximate location directly
+            setApiResult("Success - Returned approximate location:", getDummyPosition('approximate').coords);
+            break;
+        }
+      } else if (requestedMode === 'precise') {
+        switch(currentState) {
+          case 1:
+            // State 1: No prompt, gets PERMISSION_DENIED
+            setApiResult("Failure - GeolocationPositionError (code: 1, message: 'PERMISSION_DENIED')", null, true);
+            break;
+
+          case 2:
+            // State 2: Prompt for approximate only (as per rule table for state 2 requesting precise)
+            const action2 = await showPermissionDialog(
+              "Allow approximate location?",
+              "This website requested precise location, but your current settings allow prompting for approximate location only.",
+              [
+                { text: "Allow Approximate", action: "grant_approx", primary: true },
+                { text: "Block", action: "deny" }
+              ]
+            );
+            if (action2 === "grant_approx") {
+              transitionToState(3);
+              log(`User granted approximate location. Transitioned to State 3.`, 'info');
+              setApiResult("Success - Returned approximate location:", getDummyPosition('approximate').coords);
+            } else {
+              transitionToState(1);
+              log(`User denied request. Transitioned to State 1.`, 'info');
+              setApiResult("Failure - GeolocationPositionError (code: 1, message: 'PERMISSION_DENIED')", null, true);
+            }
+            break;
+
+          case 3:
+            // State 3: Return approximate location directly (as per rule table for state 3 requesting precise)
+            setApiResult("Success - Returned approximate location (website requested precise, but permission is approximate):", getDummyPosition('approximate').coords);
+            break;
+
+          case 4:
+            // State 4: Prompt for either approximate or precise location
+            const action4 = await showPermissionDialog(
+              "Allow precise location?",
+              "This website wants to know your precise location. You can choose to share your precise location, approximate location, or block access.",
+              [
+                { text: "Allow Precise", action: "grant_precise", primary: true },
+                { text: "Allow Approximate", action: "grant_approx" },
+                { text: "Block", action: "deny" }
+              ]
+            );
+            if (action4 === "grant_precise") {
+              transitionToState(6);
+              log(`User granted precise location. Transitioned to State 6.`, 'info');
+              setApiResult("Success - Returned precise location:", getDummyPosition('precise').coords);
+            } else if (action4 === "grant_approx") {
+              transitionToState(3);
+              log(`User granted approximate location. Transitioned to State 3.`, 'info');
+              setApiResult("Success - Returned approximate location:", getDummyPosition('approximate').coords);
+            } else {
+              transitionToState(1);
+              log(`User denied request. Transitioned to State 1.`, 'info');
+              setApiResult("Failure - GeolocationPositionError (code: 1, message: 'PERMISSION_DENIED')", null, true);
+            }
+            break;
+
+          case 5:
+            // State 5: Prompt to upgrade from approximate to precise location
+            const action5 = await showPermissionDialog(
+              "Upgrade to precise location?",
+              "This website already has access to your approximate location, but wants to use your precise location.",
+              [
+                { text: "Allow Precise", action: "grant_precise", primary: true },
+                { text: "Keep Approximate", action: "keep_approx" }
+              ]
+            );
+            if (action5 === "grant_precise") {
+              transitionToState(6);
+              log(`User upgraded to precise location. Transitioned to State 6.`, 'info');
+              setApiResult("Success - Returned precise location:", getDummyPosition('precise').coords);
+            } else {
+              transitionToState(3);
+              log(`User denied upgrade (kept approximate). Transitioned to State 3.`, 'info');
+              setApiResult("Success - Returned approximate location:", getDummyPosition('approximate').coords);
+            }
+            break;
+
+          case 6:
+            // State 6: Return precise location directly
+            setApiResult("Success - Returned precise location:", getDummyPosition('precise').coords);
+            break;
+        }
+      }
+    }
+
+    // Event Listeners for Action Buttons
+    btnApprox.addEventListener('click', () => emulateGetCurrentPosition('approximate'));
+    btnPrecise.addEventListener('click', () => emulateGetCurrentPosition('precise'));
+
+    // Initial UI setup
+    updateSection1Badges();
+    log("Emulator initialized ready for requests.", "info");
+  </script>
+</body>
+</html>

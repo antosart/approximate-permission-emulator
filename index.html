@@ -125,7 +125,7 @@
       background-color: #e8eaed;
     }
 
-    #api-result-display {
+    #api-result-display, #query-result-display {
       background-color: #f1f3f4;
       padding: 12px;
       border-radius: 4px;
@@ -208,6 +208,85 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+
+    @keyframes status-update-pulse {
+      0% { background-color: #f1f3f4; transform: scale(1); }
+      40% { background-color: #fff0b3; transform: scale(1.02); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+      100% { background-color: #f1f3f4; transform: scale(1); }
+    }
+
+    .status-pulse {
+      animation: status-update-pulse 1.2s ease-out;
+    }
+
+    /* Custom Select styling */
+    .custom-select {
+      position: relative;
+      width: 100%;
+      user-select: none;
+    }
+    .select-selected {
+      background-color: #fff;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.95rem;
+    }
+    .select-selected:after {
+      content: "";
+      border: 5px solid transparent;
+      border-color: #5f6368 transparent transparent transparent;
+      margin-top: 5px;
+    }
+    .select-selected.select-arrow-active:after {
+      border-color: transparent transparent #5f6368 transparent;
+      margin-top: -5px;
+    }
+    .select-items {
+      position: absolute;
+      background-color: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 99;
+      max-height: 280px;
+      overflow-y: auto;
+      margin-top: 4px;
+    }
+    .select-items div {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f1f3f4;
+      font-size: 0.95rem;
+    }
+    .select-items div:last-child {
+      border-bottom: none;
+    }
+    .select-items div:hover {
+      background-color: #f8f9fa;
+    }
+    .select-hide {
+      display: none;
+    }
+
+    /* Unified Badge styling */
+    .badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: inline-block;
+    }
+    .badge.prompt { background-color: #e8f0fe; color: var(--primary-color); }
+    .badge.denied { background-color: #fce8e6; color: var(--error-color); }
+    .badge.granted { background-color: #e6f4ea; color: var(--success-color); }
   </style>
 </head>
 <body>
@@ -221,33 +300,49 @@
       <h2 style="margin-bottom: 15px;">Manually Set Permission State</h2>
       <div style="display: flex; gap: 10px; align-items: flex-end;">
         <div class="control-group" style="flex-grow: 1;">
-          <label for="combined-state-select">Combined Permission State</label>
-          <select id="combined-state-select">
-            <option value="1">1. approximate: denied | precise: denied</option>
-            <option value="2">2. approximate: prompt | precise: denied</option>
-            <option value="3">3. approximate: granted | precise: denied</option>
-            <option value="4" selected>4. approximate: prompt | precise: prompt</option>
-            <option value="5">5. approximate: granted | precise: prompt</option>
-            <option value="6">6. approximate: granted | precise: granted</option>
-          </select>
+          <label>Combined Permission State</label>
+          <div class="custom-select" id="custom-state-select" data-value="4">
+            <div class="select-selected" id="select-selected-display"></div>
+            <div class="select-items select-hide" id="select-options-list">
+              <div data-value="1">1. approximate: <span class="badge denied">denied</span> | precise: <span class="badge denied">denied</span></div>
+              <div data-value="2">2. approximate: <span class="badge prompt">prompt</span> | precise: <span class="badge denied">denied</span></div>
+              <div data-value="3">3. approximate: <span class="badge granted">granted</span> | precise: <span class="badge denied">denied</span></div>
+              <div data-value="4">4. approximate: <span class="badge prompt">prompt</span> | precise: <span class="badge prompt">prompt</span></div>
+              <div data-value="5">5. approximate: <span class="badge granted">granted</span> | precise: <span class="badge prompt">prompt</span></div>
+              <div data-value="6">6. approximate: <span class="badge granted">granted</span> | precise: <span class="badge granted">granted</span></div>
+            </div>
+          </div>
         </div>
         <button class="btn-secondary" id="btn-reset-state">Reset</button>
       </div>
       
-      <!-- Vibrant colored status indicator block -->
-      <div id="colored-state-badges" style="margin-top: 12px; padding: 8px 12px; background-color: var(--background-color); border-radius: 4px; border: 1px solid var(--border-color); display: flex; align-items: center;">
-        <!-- Dynamically updated via JS -->
+
+    </div>
+
+    <!-- Permissions Live Status Section -->
+    <div class="card">
+      <h2 style="margin-bottom: 5px;">Permissions Status</h2>
+      <p class="subtitle" style="margin-bottom: 15px;">Emulating <code>PermissionStatus.onchange</code> events.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div id="box-approx-status" style="background-color: #f1f3f4; padding: 12px; border-radius: 4px;">
+          <div style="font-weight: 600; font-size: 0.85rem; color: var(--secondary-color); margin-bottom: 5px;">geolocation-approximate</div>
+          <div style="font-family: monospace; font-size: 1rem;" id="status-approx-display"></div>
+        </div>
+        <div id="box-precise-status" style="background-color: #f1f3f4; padding: 12px; border-radius: 4px;">
+          <div style="font-weight: 600; font-size: 0.85rem; color: var(--secondary-color); margin-bottom: 5px;">geolocation</div>
+          <div style="font-family: monospace; font-size: 1rem;" id="status-precise-display"></div>
+        </div>
       </div>
     </div>
 
     <!-- Actions -->
     <div class="card">
       <h2 style="margin-bottom: 15px;">Request Position</h2>
-      <div class="btn-group">
-        <button class="btn-primary" id="btn-approx">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <button class="btn-primary" id="btn-approx" style="padding: 10px 5px; font-size: 0.85rem;">
           getCurrentPosition({ accuracyMode: 'approximate' })
         </button>
-        <button class="btn-primary" id="btn-precise">
+        <button class="btn-primary" id="btn-precise" style="padding: 10px 5px; font-size: 0.85rem;">
           getCurrentPosition({ accuracyMode: 'precise' })
         </button>
       </div>
@@ -282,8 +377,11 @@
 
   <script>
     // DOM Elements
-    const combinedStateSelect = document.getElementById('combined-state-select');
-    const coloredStateBadges = document.getElementById('colored-state-badges');
+    const combinedStateSelect = document.getElementById('custom-state-select');
+    const statusApproxDisplay = document.getElementById('status-approx-display');
+    const statusPreciseDisplay = document.getElementById('status-precise-display');
+    const boxApproxStatus = document.getElementById('box-approx-status');
+    const boxPreciseStatus = document.getElementById('box-precise-status');
     const btnApprox = document.getElementById('btn-approx');
     const btnPrecise = document.getElementById('btn-precise');
     const btnResetState = document.getElementById('btn-reset-state');
@@ -295,47 +393,23 @@
     const dialogMessage = document.getElementById('dialog-message');
     const dialogActions = document.getElementById('dialog-actions');
 
-    // Render vibrant blue, red, and green tag badges for Section 1 active state display
-    function updateSection1Badges() {
-      const stateNum = parseInt(combinedStateSelect.value, 10);
-      let approx = 'denied', precise = 'denied';
-      switch(stateNum) {
-        case 1: approx = 'denied'; precise = 'denied'; break;
-        case 2: approx = 'prompt'; precise = 'denied'; break;
-        case 3: approx = 'granted'; precise = 'denied'; break;
-        case 4: approx = 'prompt'; precise = 'prompt'; break;
-        case 5: approx = 'granted'; precise = 'prompt'; break;
-        case 6: approx = 'granted'; precise = 'granted'; break;
-      }
-
-      const getBadge = (val) => {
-        let bg = '', fg = '';
-        if (val === 'prompt') { bg = '#e8f0fe'; fg = 'var(--primary-color)'; } // blue
-        if (val === 'denied') { bg = '#fce8e6'; fg = 'var(--error-color)'; }   // red
-        if (val === 'granted') { bg = '#e6f4ea'; fg = 'var(--success-color)'; } // green
-        return `<span style="background-color: ${bg}; color: ${fg}; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.85rem; display: inline-block;">${val}</span>`;
-      };
-
-      coloredStateBadges.innerHTML = `<span style="color: var(--secondary-color); font-size: 0.85rem; margin-right: 8px;">Active Configuration:</span> <span style="font-size: 0.9rem;">approximate: ${getBadge(approx)} <span style="color: var(--border-color); margin: 0 8px;">|</span> precise: ${getBadge(precise)}</span>`;
-    }
-
     // Listen for manual state changes
     combinedStateSelect.addEventListener('change', () => {
-      updateSection1Badges();
       log(`Manually changed state to State ${combinedStateSelect.value}`, 'info');
       apiResultDisplay.textContent = "State modified programmatically. Request position again to test.";
       apiResultDisplay.style.backgroundColor = "#f1f3f4";
       apiResultDisplay.style.color = "#202124";
+      updateLivePermissionsStatus();
     });
 
     // Reset state to default (State 4: prompt/prompt)
     btnResetState.addEventListener('click', () => {
       combinedStateSelect.value = "4";
-      updateSection1Badges();
       log(`Reset permission states to default State 4 (prompt/prompt)`, 'info');
       apiResultDisplay.textContent = "State reset to State 4. Request position again to test.";
       apiResultDisplay.style.backgroundColor = "#f1f3f4";
       apiResultDisplay.style.color = "#202124";
+      updateLivePermissionsStatus();
     });
 
     // Helper to format logs
@@ -352,12 +426,74 @@
       outputLog.innerHTML = '';
     });
 
-    // Unified helper to display API results directly in Section 2 and record to Log
+    // Helper to get badge HTML for state display
+    function getStateBadge(val) {
+      return `<span class="badge ${val}">${val}</span>`;
+    }
+
+    function getApproxPermissionState(currentState) {
+      switch(currentState) {
+        case 1: return "denied";
+        case 2: return "prompt";
+        case 3: return "granted";
+        case 4: return "prompt";
+        case 5: return "granted";
+        case 6: return "granted";
+        default: return "unknown";
+      }
+    }
+
+    function getPrecisePermissionState(currentState) {
+      switch(currentState) {
+        case 1: return "denied";
+        case 2: return "prompt";
+        case 3: return "granted"; 
+        case 4: return "prompt";
+        case 5: return "prompt";
+        case 6: return "granted";
+        default: return "unknown";
+      }
+    }
+
+    // Live status update emulation
+    function updateLivePermissionsStatus() {
+      const currentState = parseInt(combinedStateSelect.value, 10);
+      const approxState = getApproxPermissionState(currentState);
+      const preciseState = getPrecisePermissionState(currentState);
+
+      const prevApprox = statusApproxDisplay.dataset.state;
+      const prevPrecise = statusPreciseDisplay.dataset.state;
+
+      statusApproxDisplay.innerHTML = `{ state: ${getStateBadge(approxState)} }`;
+      statusApproxDisplay.dataset.state = approxState;
+      
+      statusPreciseDisplay.innerHTML = `{ state: ${getStateBadge(preciseState)} }`;
+      statusPreciseDisplay.dataset.state = preciseState;
+
+      const triggerPulse = (boxEl) => {
+        boxEl.classList.remove('status-pulse');
+        void boxEl.offsetWidth; // trigger reflow to restart animation cleanly
+        boxEl.classList.add('status-pulse');
+        boxEl.addEventListener('animationend', () => boxEl.classList.remove('status-pulse'), { once: true });
+      };
+
+      // Emulate onstatuschange event firing by logging if state changed after initialization
+      if (prevApprox && prevApprox !== approxState) {
+        log(`[onstatuschange] geolocation-approximate state changed to '${approxState}'`, 'info');
+        triggerPulse(boxApproxStatus);
+      }
+      if (prevPrecise && prevPrecise !== preciseState) {
+        log(`[onstatuschange] geolocation state changed to '${preciseState}'`, 'info');
+        triggerPulse(boxPreciseStatus);
+      }
+    }
+
+    // Unified helper to display API results directly in Section 3 and record to Log
     function setApiResult(summaryText, payloadObj, isError = false) {
       const payloadStr = payloadObj ? JSON.stringify(payloadObj, null, 2) : '';
       const fullDisplay = `${summaryText}${payloadStr ? '\n' + payloadStr : ''}`;
       
-      // Display directly inside Section 2
+      // Display directly inside Section 3
       apiResultDisplay.textContent = fullDisplay;
       apiResultDisplay.style.color = isError ? 'var(--error-color)' : 'var(--success-color)';
       apiResultDisplay.style.backgroundColor = isError ? '#fce8e6' : '#e6f4ea';
@@ -392,7 +528,7 @@
     // Transition to a new state programmatically
     function transitionToState(stateNum) {
       combinedStateSelect.value = stateNum;
-      updateSection1Badges();
+      updateLivePermissionsStatus();
     }
 
     // Show custom permission dialog and return a Promise resolved with the user's action
@@ -577,8 +713,55 @@
     btnApprox.addEventListener('click', () => emulateGetCurrentPosition('approximate'));
     btnPrecise.addEventListener('click', () => emulateGetCurrentPosition('precise'));
 
+    function updateCustomSelectDisplay(val) {
+      const selectedDiv = document.getElementById('select-selected-display');
+      const optionEl = document.querySelector(`#select-options-list div[data-value="${val}"]`);
+      if (optionEl) {
+        selectedDiv.innerHTML = optionEl.innerHTML;
+      }
+    }
+
+    function initCustomSelect() {
+      const selectContainer = document.getElementById('custom-state-select');
+      const selectedDisplay = document.getElementById('select-selected-display');
+      const optionsList = document.getElementById('select-options-list');
+
+      Object.defineProperty(selectContainer, 'value', {
+        get() { return this.dataset.value; },
+        set(val) {
+          this.dataset.value = val;
+          updateCustomSelectDisplay(val);
+        }
+      });
+
+      updateCustomSelectDisplay(selectContainer.dataset.value);
+
+      selectedDisplay.addEventListener('click', (e) => {
+        e.stopPropagation();
+        optionsList.classList.toggle('select-hide');
+        selectedDisplay.classList.toggle('select-arrow-active');
+      });
+
+      optionsList.querySelectorAll('div').forEach(option => {
+        option.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const chosenValue = option.dataset.value;
+          selectContainer.value = chosenValue;
+          optionsList.classList.add('select-hide');
+          selectedDisplay.classList.remove('select-arrow-active');
+          selectContainer.dispatchEvent(new Event('change'));
+        });
+      });
+
+      document.addEventListener('click', () => {
+        optionsList.classList.add('select-hide');
+        selectedDisplay.classList.remove('select-arrow-active');
+      });
+    }
+
     // Initial UI setup
-    updateSection1Badges();
+    initCustomSelect();
+    updateLivePermissionsStatus();
     log("Emulator initialized ready for requests.", "info");
   </script>
 </body>
